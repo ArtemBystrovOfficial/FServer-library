@@ -1,4 +1,4 @@
-# FServer-library
+# FServer-library C++17
 ## About
 **FServer-library** - this library will allow users to quickly, conveniently and practically create their own servers together with the client
 ___
