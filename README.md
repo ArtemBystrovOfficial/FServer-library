@@ -13,7 +13,7 @@ sv << std::pair { Pocket{"Ok","Login"}, id };
 
 sv.stop();
 ```
-## Documentation
+## Documentation (RUS Lenguage
 Easy to start<br/>
 :spiral_notepad:
 [***FServer_doc.docx***](https://docs.google.com/document/d/1XeIXLJ9op7A7yuGaVC4ZtFfJ6ryyomB7/edit?usp=sharing&ouid=114316868734239124935&rtpof=true&sd=true)
