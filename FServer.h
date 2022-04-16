@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <memory>
 
+#define DEBUG_CONSOLE
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma warning(disable: 4996)
@@ -46,7 +47,6 @@ public:
         std::string name;
         int from;
         size_t size_bytes;
-
 
     };
 
@@ -168,7 +168,7 @@ private:
         auto it2 = std::find(file_name.rbegin(), file_name.rend(), '\\');
         if (it2 != file_name.rend())
         {
-            std::copy(file_name.rbegin(), it1, std::back_inserter(data));
+            std::copy(file_name.rbegin(), it2, std::back_inserter(data));
         }
         std::reverse(data.begin(), data.end());
         file_name = data;
@@ -208,6 +208,7 @@ public:
     template<typename _Struct>
     friend Server<_Struct>& operator<<(Server<_Struct>&, std::pair <std::string,
         typename Server<_Struct>::Number_of_group >&&);
+
     template<typename _Struct>
     friend Server<_Struct>& operator>>(Server<_Struct>&, typename Server<_Struct>::info_pack_signal&);
 
@@ -244,6 +245,10 @@ public:
 
     //add your group with id of connections
     void add_group(int _id_group, const std::vector <int>& st);
+
+    //add your group
+    void add_group(int _id_group);
+
     // add id to any group
     void add_to_group(int _id_group, int _id_person);
 
@@ -320,7 +325,12 @@ void Server<_Struct>::_Read_th()
         if (recv(Connections[id].connect, &msg, sizeof(msg), 0) <= 0)
         {
             if (!block_buffer_out.try_lock()) continue;
+
+#ifdef DEBUG_CONSOLE
+
             std::cout << "disconected Extra: " << id << "\n";
+
+#endif
             ext(Connections[id].is_close);
             block_buffer_out.unlock();
             break;
@@ -334,7 +344,9 @@ void Server<_Struct>::_Read_th()
             {
             case(Commands::CLOSE):
             {
+#ifdef DEBUG_CONSOLE
                 std::cout << "disconected: " << id << "\n";
+#endif
                 ext(Connections[id].is_close);
                 closesocket(Connections[id].connect);
                 break;
@@ -375,9 +387,12 @@ void Server<_Struct>::_Read_th()
 
                 std::string _file_name = path;
 
+#ifdef DEBUG_CONSOLE
+
                 if (path == "" || !is_path_ready.load())
                     std::cout << "Warning: your path to download directory empty or haven't signed up yet, "
                     "your files in cpp directory\n";
+#endif
 
                 std::string file_name_to_export = file_name;
 
@@ -408,9 +423,9 @@ void Server<_Struct>::_Read_th()
                 buf_in_files.push_back(info_pack_signal{ file_name_to_export, int(id), size_t(file_size) });
 
                 block_bufeer_in_files.unlock();
-
+#ifdef DEBUG_CONSOLE
                 std::cout << "file saved ok " << file_name << " size " << file_size + 128 << " bytes\n";
-
+#endif
                 delete[] bytes;
             }
             break;
@@ -453,7 +468,9 @@ void Server<_Struct>::_Send_th()
 
             if (send(Connections[data.second].connect, (char*)&data.first, sizeof(_Struct), 0) > 0)
             {
+#ifdef DEBUG_CONSOLE
                 std::cout << "sended " << sizeof(_Struct) << " bytes to " << data.second << std::endl;
+#endif
             }
 
             buf_out.pop_front();
@@ -473,12 +490,11 @@ void Server<_Struct>::_send_file(std::string file_name, int _id_person)
 {
 
     auto file_name_handler = file_name;
-    to_name(file_name_handler);
 
     file_name = path + file_name;
 
     if (path == "" || !is_path_ready.load())
-        std::cout << "Warning: your path to download directory empty or haven't signed up yet, "
+        throw "Error: your path to download directory empty or haven't signed up yet, "
         "your files in cpp directory\n";
 
     std::fstream file;
@@ -502,9 +518,10 @@ void Server<_Struct>::_send_file(std::string file_name, int _id_person)
         send(Connections[_id_person].connect, file_name_handler.c_str(), 64, 0);
         send(Connections[_id_person].connect, bytes, file_size, 0);
 
-
+#ifdef DEBUG_CONSOLE
         std::cout << " sended file: " << file_name << " size " << file_size + 128 << " bytes "
             << " to " << _id_person << "\n";
+#endif
 
         Sleep(10);
 
@@ -534,8 +551,9 @@ void Server<_Struct>::new_connected()
             std::move(std::thread(&Server::_Read_th, this)));
 
         Connections.push_back(std::move(data));
-
+#ifdef DEBUG_CONSOLE
         if (!Exit.load()) std::cout << "connected new person\n";
+#endif
         block_before_open_th.unlock();
         std::this_thread::sleep_for(10ms); //extra safe
     }
@@ -618,12 +636,14 @@ void Server<_Struct>::start()
 // you program can call terminated() or programm and threads
 // will finish not right. You can use RTTI and place method
 // in destructor. Read more about it in documentation, please
+
 template <typename _Struct>
 void Server<_Struct>::stop()
 {
 
 
     uint16_t time = 0;
+#ifndef DEBUG_CONSOLE
     while (!is_buf_out_empty()) {
         if (time > 100)
         {
@@ -634,6 +654,7 @@ void Server<_Struct>::stop()
         time += 1;
         std::this_thread::sleep_for(1ms);
     }
+#endif
     Exit.store(true);
     is_disconected.store(true);
 
@@ -689,9 +710,19 @@ void Server<_Struct>::add_group(int _id_group, const std::vector <int>& st)
 
     auto group = groups.find(_id_group);
     if (group != groups.end())
-        throw std::exception("Attempt add to NULL group\n");
+        throw std::exception("Attempt add to exist group\n");
 
     groups[_id_group] = Group(st);
+}
+
+template <typename _Struct>
+void Server<_Struct>::add_group(int _id_group)
+{
+    auto group = groups.find(_id_group);
+    if (group != groups.end())
+        throw std::exception("Attempt add to exist group\n");
+
+    groups[_id_group] = Group();
 }
 
 // add id to any group
@@ -730,7 +761,7 @@ void Server<_Struct>::delete_from_group(int _id_group, int _id_person)
 
 // function for better understanding your code
 template <typename _Struct>
-static Server<_Struct>::Number_of_group Server<_Struct>::to_group(int _id_group)
+static typename Server<_Struct>::Number_of_group Server<_Struct>::to_group(int _id_group)
 {
 
     return Number_of_group(std::move(_id_group));
@@ -1143,13 +1174,14 @@ Server<_Struct>& operator>>(Server<_Struct>& sv,
 
     sv.block_bufeer_in_files.lock();
 
+#ifdef DEBUG_CONSOLE
     if (sv.buf_in_files.empty())
     {
         std::cout << "Warning files buffer is empty\n";
         sv.block_bufeer_in_files.unlock();
         return sv;
     }
-
+#endif
     auto data = sv.buf_in_files.front();
 
     sv.buf_in_files.pop_front();
@@ -1159,3 +1191,9 @@ Server<_Struct>& operator>>(Server<_Struct>& sv,
     sv.block_bufeer_in_files.unlock();
 }
 
+int main()
+{
+    Server<void> sv("127.0.0.1", 1111);
+
+
+}
