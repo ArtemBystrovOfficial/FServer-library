@@ -35,4 +35,5 @@ Client project
   - :file_folder: [Example 2 (Work with files)](https://drive.google.com/drive/folders/1j_NFBW2qQFidXhFTgdaZ7HtJpGm6oNiK?usp=sharing)
 ## Feedback
 :email: bystrov.official.one@gmail.com
+<br/>
 ![logo](https://user-images.githubusercontent.com/92841151/163685103-54875fdc-2b7d-4e54-b73e-6564479622c6.png)
