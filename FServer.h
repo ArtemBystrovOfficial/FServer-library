@@ -1190,10 +1190,3 @@ Server<_Struct>& operator>>(Server<_Struct>& sv,
 
     sv.block_bufeer_in_files.unlock();
 }
-
-int main()
-{
-    Server<void> sv("127.0.0.1", 1111);
-
-
-}
