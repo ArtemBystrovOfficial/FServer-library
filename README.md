@@ -1,4 +1,6 @@
 # FServer-library C++17
+![](https://img.shields.io/badge/C++-Solutions-blue.svg?style=flat&logo=c%2B%2B)
+
 ## About
 **FServer-library** - this library will allow users to quickly, conveniently and practically create their own servers together with the client
 ___
