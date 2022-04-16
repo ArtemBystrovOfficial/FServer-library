@@ -2,9 +2,9 @@
 ![](https://img.shields.io/badge/C++-Solutions-blue.svg?style=flat&logo=c%2B%2B)
 
 ## About
-**FServer-library** - this library will allow users to quickly, conveniently and practically create their own servers together with the client
+**FServer-library** - this library will allow users to `quickly`, `conveniently` and `practically` create their own servers together with the client
 ___
-Use the library with maximum simplicity all you need to communicate with clients a couple of lines of code and something else
+Use the library with `maximum` simplicity all you need to communicate with clients a couple of lines of code and something else
 ```C++
 struct Pocket;
 
