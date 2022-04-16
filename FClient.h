@@ -12,6 +12,8 @@
 #include <fstream>
 #include <filesystem>
 
+#define DEBUG_CONSOLE
+
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma warning(disable: 4996)
 
@@ -97,7 +99,26 @@ private:
 
     //main thread for send files
     void _send_file(std::string file_name);
-    
+
+    //parsing name of file
+    static void to_name(std::string& file_name)
+    {
+        std::string data = "";
+        auto it1 = std::find(file_name.rbegin(), file_name.rend(), '/');
+        if (it1 != file_name.rend())
+        {
+            std::copy(file_name.rbegin(), it1, std::back_inserter(data));
+        }
+
+        auto it2 = std::find(file_name.rbegin(), file_name.rend(), '\\');
+        if (it2 != file_name.rend())
+        {
+            std::copy(file_name.rbegin(), it2, std::back_inserter(data));
+        }
+        std::reverse(data.begin(), data.end());
+        file_name = data;
+    }
+
 public:
     //+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+
     //+-+-+-+-+-+-+-+-+| Operators |+-+-+-+-+-+-+-+-+-+-+
@@ -122,25 +143,6 @@ public:
     //+-+-+-+-+-+-+-+-+| public Methods |+-+-+-+-+-+-+-+-
     //+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+
 
-    //parsing name of file
-    static void to_name(std::string& file_name)
-    {
-        std::string data="";
-        auto it1 = std::find(file_name.rbegin(), file_name.rend(), '/');
-        if (it1 != file_name.rend())
-        {
-            std::copy(file_name.rbegin(), it1, std::back_inserter(data));
-        }
-
-        auto it2 = std::find(file_name.rbegin(), file_name.rend(), '\\');
-        if (it2 != file_name.rend())
-        {
-            std::copy(file_name.rbegin(), it1, std::back_inserter(data));
-        }
-        std::reverse(data.begin(), data.end());
-        file_name = data;
-    }
-
     //return true, when buf_in doesn't contain any pocket_message from clients
     bool is_buf_in_empty();
 
@@ -156,7 +158,7 @@ public:
     // in destructor. Read more about it in documentation, please
     void disconnect();
 
-    // start server
+    // start client
     void connect_to_server();
 
     //return true, if server have used disconnect() or another critical exit 
@@ -212,7 +214,9 @@ void Client<_Struct>::_Read_th()
         if (recv(Connection, &msg, sizeof(msg), 0) <= 0)
         {
             if (!block_buffer_out.try_lock()) continue;
+#ifdef DEBUG_CONSOLE
             std::cout << "disconected Extra from server \n";
+#endif
             ext();
             block_buffer_out.unlock();
             break;
@@ -226,7 +230,9 @@ void Client<_Struct>::_Read_th()
             {
             case(Commands::CLOSE):
             {
+#ifdef DEBUG_CONSOLE
                 std::cout << "disconected from server \n";
+#endif
                 ext();
                 closesocket(Connection);
                 break;
@@ -266,11 +272,11 @@ void Client<_Struct>::_Read_th()
                 recv(Connection, file_name, 64, 0);
 
                 std::string _file_name = path.c_str();
-
+#ifdef DEBUG_CONSOLE
                 if (path == "" || !is_path_ready.load())
                     std::cout << "Warning: your path to download directory empty or haven't signed up yet, "
                     "your files in cpp directory\n";
-
+#endif
                 _file_name += file_name;
 
                 strcpy(file_name, _file_name.c_str());
@@ -296,9 +302,9 @@ void Client<_Struct>::_Read_th()
                 buf_in_files.push_back(info_pack_signal{ file_name, size_t(file_size) });
 
                 block_bufeer_in_files.unlock();
-
+#ifdef DEBUG_CONSOLE
                 std::cout << "file saved ok " << file_name << " size " << file_size + 128 << " bytes \n";
-
+#endif DEBUG_CONSOLE
                 delete[] bytes;
 
 
@@ -351,12 +357,6 @@ void Client<_Struct>::_send_file(std::string file_name)
     auto file_name_handler = file_name;
     to_name(file_name_handler);
 
-    file_name = path + file_name;
-
-    if (path == "" || !is_path_ready.load())
-        std::cout << "Warning: your path to download directory empty or haven't signed up yet, "
-        "your files in cpp directory\n";
-
     std::fstream file;
 
     file.open(file_name, std::ios_base::in | std::ios_base::binary);
@@ -366,7 +366,7 @@ void Client<_Struct>::_send_file(std::string file_name)
         int file_size = std::filesystem::file_size(file_name);
 
         // max-size 50mb
-        if (file_size > 52'428'800)
+        if (file_size > 2'428'800)
             throw std::exception("So big file");
 
         char* bytes = new char[file_size];
@@ -382,10 +382,10 @@ void Client<_Struct>::_send_file(std::string file_name)
         send(Connection, std::to_string(file_size).c_str(), 64, 0);
         send(Connection, file_name_handler.c_str(), 64, 0);
         send(Connection, bytes, file_size, 0);
-
+#ifdef DEBUG_CONSOLE
         std::cout << " sended file: " << file_name << " size " << file_size + 128 << " bytes "
             << " to " << ip << ":" << port << "\n";
-
+#endif
         Sleep(10);
 
         block_buffer_out.unlock();
@@ -428,7 +428,8 @@ bool Client<_Struct>::is_buf_out_empty()
 template<typename _Struct>
 Client<_Struct>::Client(const char* IP, const int& port) : ip(IP), port(port)
 {
-    srand(time(0));
+    
+    srand(int(time(0)));
 
     not_buf_in_empty = CreateEvent(NULL, true, false, TEXT("rc" + char(rand() % 256) + char(rand() % 256) + char(rand() % 256)
         + char(rand() % 256) + char(rand() % 256) + char(rand() % 256)));
@@ -457,7 +458,7 @@ Client<_Struct>::Client(const char* IP, const int& port) : ip(IP), port(port)
 template<typename _Struct>
 void Client<_Struct>::disconnect()
 {
-
+#ifdef DEBUG_CONSOLE
     uint16_t time = 0;
     while (!is_buf_out_empty()) {
         if (time > 100)
@@ -469,12 +470,12 @@ void Client<_Struct>::disconnect()
         time += 1;
         std::this_thread::sleep_for(1ms);
     }
+#endif
+    Sleep(500); // extra safe
 
     block_buffer_in.lock();
 
     block_buffer_out.lock();
-
-    Sleep(10); // extra safe
 
     Exit.store(true);
 
@@ -489,9 +490,9 @@ void Client<_Struct>::disconnect()
     send(Connection, &command, sizeof(command), 0);
 
     closesocket(Connection);
-
+#ifdef DEBUG_CONSOLE
     std::cout << "disconected from : " << ip << ":" << port << std::endl;
-
+#endif DEBUG_CONSOLE
     block_buffer_out.unlock();
 
     block_buffer_in.unlock();
@@ -507,9 +508,9 @@ void Client<_Struct>::connect_to_server()
     if (connect(Connection, (SOCKADDR*)&addr, sizeof(addr)) != 0) {
         throw std::exception("Error: failed connect to server\n");
     }
-
+#ifdef DEBUG_CONSOLE
     std::cout << "connected to: " << ip << ":" << port << "\n";
-
+#endif
     Send = std::move(std::thread(&Client::_Send_th, this));
     Read = std::move(std::thread(&Client::_Read_th, this));
 
@@ -588,17 +589,16 @@ Client<_Struct>::~Client()
 
     Send.join();
     Read.join();
-
+#ifdef DEBUG_CONSOLE
     if (!is_disconected.load())std::cout << "disconected from : " << ip << ":" << port;
+#endif
 }
 
 //operator recv pocket from server
 template<typename _Struct>
 Client < _Struct >& operator>>(Client  < _Struct >& sv, _Struct& st)
 {
-
     if (sv.buf_in.empty()) {
-
         WaitForSingleObject(sv.not_buf_in_empty, INFINITE);
         if (sv.is_disconected) return sv;
 
@@ -665,6 +665,7 @@ Client<_Struct>& operator>>(Client<_Struct>& sv, typename Client<_Struct>::info_
 {
 
     sv.block_bufeer_in_files.lock();
+#ifdef DEBUG_CONSOLE
 
     if (sv.buf_in_files.empty())
     {
@@ -673,6 +674,7 @@ Client<_Struct>& operator>>(Client<_Struct>& sv, typename Client<_Struct>::info_
         return sv;
     }
 
+#endif
     auto data = sv.buf_in_files.front();
 
     sv.buf_in_files.pop_front();
