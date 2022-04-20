@@ -563,7 +563,7 @@ template <typename _Struct>
 //Show you do you have any connection
 bool Server<_Struct>::is_least_one_connection()
 {
-    return count_all_online() == 0;
+    return count_all_online() != 0;
 }
 
 //return true, if server have used disconnect() or another critical exit 
