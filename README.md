@@ -33,6 +33,7 @@ Client project
 - :open_file_folder:
   - :file_folder: [Example 1 (Easy classic server with reg)](https://drive.google.com/drive/folders/1oQyTh73ImCRDRsXq-KhkqRJYRacEwZ3Y?usp=sharing)
   - :file_folder: [Example 2 (Work with files)](https://drive.google.com/drive/folders/1j_NFBW2qQFidXhFTgdaZ7HtJpGm6oNiK?usp=sharing)
+  - :file_folder: [Example 3 (Work with HTTP)](https://drive.google.com/drive/folders/1cRHKnJTdg3zkKcDWph3qbWwQp9RB-_c4?usp=sharing)
 ## Feedback
 :email: bystrov.official.one@gmail.com
 
