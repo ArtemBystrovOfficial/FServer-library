@@ -6,12 +6,13 @@ struct Pocket
 
 int main()
 {
-
+	
 	Server <Pocket> sv("192.168.0.200", 80);
 
 	sv.start();
 
-
+	sv.set_path_download("/home/artem/test/");
+	
 	while (true)
 	{
 		int n = -1;
@@ -19,8 +20,6 @@ int main()
 				n = sv.get_http_connect();
 				Sleep(100);
 			}
-
-		sv.set_path_download("C:\\Users\\Temas\\Desktop\\");
 
 		sv << HTTP{ "test.html",n };
 
