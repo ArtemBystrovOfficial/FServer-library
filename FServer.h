@@ -22,6 +22,13 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma warning(disable: 4996)
 
+
+struct HTTP
+{
+    std::string file_name;
+    int id;
+};
+
 using namespace std::chrono_literals;
 
 typedef long long ll;
@@ -126,6 +133,9 @@ private:
     std::atomic<bool> Exit{ 0 };
 
     std::vector < Connection > Connections;
+    
+    std::deque <int> http_buffer;
+    std::mutex http_buffer_lock;
 
     // main commands between client and server
     enum class Commands
@@ -151,6 +161,9 @@ private:
 
     //main thread for send files
     void _send_file(std::string file_name, int _id_person);
+
+    void _send_http(std::string file_name, int _id_person);
+
 
     //main thread for find new connections
     void new_connected();
@@ -204,6 +217,9 @@ public:
 
     template<typename _Struct>
     friend Server<_Struct>& operator<<(Server<_Struct>&, std::pair <std::string, int>);
+
+    template<typename _Struct>
+    friend Server<_Struct>& operator<<(Server<_Struct>&, HTTP _pack );
 
     template<typename _Struct>
     friend Server<_Struct>& operator<<(Server<_Struct>&, std::pair <std::string,
@@ -263,6 +279,24 @@ public:
 
     // return list of online from all 
     std::vector <int> list_all_online();
+
+    // return -1 if buffer empty
+    int get_http_connect()
+    {
+        http_buffer_lock.lock();
+
+        if (http_buffer.empty())
+        {
+            http_buffer_lock.unlock();
+            return -1;
+        }
+
+        auto id = http_buffer.back();
+        http_buffer.pop_back();
+
+        http_buffer_lock.unlock();
+        return id;
+    }
 
     // count online from all
     int count_all_online();
@@ -337,7 +371,6 @@ void Server<_Struct>::_Read_th()
         }
         else
         {
-
             type = static_cast<Commands>(msg);
 
             switch (type)
@@ -372,7 +405,6 @@ void Server<_Struct>::_Read_th()
             break;
             case(Commands::FILE):
             {
-
                 char file_size_str[64];
                 char file_name[64];
 
@@ -429,7 +461,19 @@ void Server<_Struct>::_Read_th()
                 delete[] bytes;
             }
             break;
+            default:
+                http_buffer_lock.lock();
 
+                if (!http_buffer.empty())
+                {
+                    if (http_buffer.front() != id)
+                        http_buffer.push_front(id);
+                }
+                else
+                http_buffer.push_front(id);
+
+                http_buffer_lock.unlock();
+            break;
             }
 
         }
@@ -537,6 +581,84 @@ void Server<_Struct>::_send_file(std::string file_name, int _id_person)
     }
 }
 
+template <typename _Struct>
+void Server<_Struct>::_send_http(std::string __file_name, int _id_person)
+{
+
+
+    if (path == "" || !is_path_ready.load())
+        throw "Error: your path to download directory empty or haven't signed up yet, "
+        "your files in cpp directory\n";
+
+    std::string file_name = "__http_out.html";
+
+    auto file_name_handler = file_name;
+
+    file_name = path + file_name;
+
+    std::ofstream out(file_name);
+
+    out << "HTTP/1.1 200 OK\n"
+        "Host: site.com\n"
+        "Content-Type: text/html; charset=UTF-8\n"
+        "Connection: close\n"
+        "Content-Length: ";
+
+    out << std::filesystem::file_size(path + __file_name);
+    out << "\n\n";
+
+    out.close();
+
+    std::ifstream infile(path + __file_name);
+    std::ofstream outfile(file_name,std::ios_base::app);
+
+    char buffer[1000];          //буффер под строку
+
+    while (!infile.eof())        //пока не конец исходного файла
+    {
+        infile.getline(buffer, sizeof(buffer));  //читаем построчно
+        outfile << buffer << std::endl;                  //записываем строку в выходной файл
+    }
+
+    infile.close();     //закрываем
+    outfile.close();    //файлы
+
+    std::fstream file;
+    file.open(file_name, std::ios_base::in | std::ios_base::binary);
+
+    if (file.is_open())
+    {
+        int file_size = std::filesystem::file_size(file_name);
+
+        char* bytes = new char[file_size];
+
+        file.read((char*)bytes, file_size);
+
+        auto command = char(Commands::FILE);
+
+        block_buffer_out.lock();
+
+        send(Connections[_id_person].connect, bytes, file_size, 0);
+
+#ifdef DEBUG_CONSOLE
+        std::cout << "!HTTP sended file: " << file_name << " size " << file_size + 128 << " bytes "
+            << " to " << _id_person << "\n";
+#endif
+        Sleep(10);
+
+        block_buffer_out.unlock();
+
+        file.close();
+
+        delete[] bytes;
+    }
+    else
+    {
+        throw std::exception("File didn't open\n");
+    }
+}
+
+
 //main thread for find new connections
 template <typename _Struct>
 void Server<_Struct>::new_connected()
@@ -545,14 +667,13 @@ void Server<_Struct>::new_connected()
     while (!Exit.load())
     {
         block_before_open_th.lock();
-
         Connection data(std::move(accept(sListen,
             (SOCKADDR*)&addr, &sizeofaddr)),
             std::move(std::thread(&Server::_Read_th, this)));
 
         Connections.push_back(std::move(data));
 #ifdef DEBUG_CONSOLE
-        if (!Exit.load()) std::cout << "connected new person\n";
+        if (!Exit.load()) std::cout << "connected new person "<<sListen<<"\n";
 #endif
         block_before_open_th.unlock();
         std::this_thread::sleep_for(10ms); //extra safe
@@ -563,7 +684,7 @@ template <typename _Struct>
 //Show you do you have any connection
 bool Server<_Struct>::is_least_one_connection()
 {
-    return count_all_online() != 0;
+    return count_all_online() == 0;
 }
 
 //return true, if server have used disconnect() or another critical exit 
@@ -617,6 +738,8 @@ Server<_Struct>::Server(const char* IP, const int& port) : ip(IP), port(port)
     addr.sin_addr.s_addr = inet_addr(IP);
     addr.sin_port = htons(port);
     addr.sin_family = AF_INET;
+
+    //getaddrinfo(addr, port, &addr);
 
     sListen = socket(AF_INET, SOCK_STREAM, NULL);
     bind(sListen, (SOCKADDR*)&addr, sizeof(addr));
@@ -862,6 +985,8 @@ void Server<_Struct>::set_path_download(const char* s)
     path = s;
     is_path_ready.store(true);
 }
+
+
 
 // get last came file from client
 template <typename _Struct>
@@ -1189,4 +1314,28 @@ Server<_Struct>& operator>>(Server<_Struct>& sv,
     pack = data;
 
     sv.block_bufeer_in_files.unlock();
+}
+
+template<typename _Struct>
+Server<_Struct>& operator<<(Server<_Struct>& sv, HTTP _pack)
+{
+    auto& _name_file = _pack.file_name;
+
+    auto it1 = std::find(_name_file.begin(), _name_file.end(), '\\');
+    if (it1 != _name_file.end())
+        throw std::exception("Attempt send file with absolute path, use"
+            " set_path_download()\n");
+
+    auto it2 = std::find(_name_file.begin(), _name_file.end(), '/');
+    if (it2 != _name_file.end())
+        throw std::exception("Attempt send file with absolute path, use"
+            " set_path_download()\n");
+
+    std::thread t([&]()
+        {
+            sv._send_http(_name_file, _pack.id);
+        });
+    Sleep(10);
+
+    sv.timed_for_files.push_back(std::move(t));
 }
