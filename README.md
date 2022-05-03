@@ -1,4 +1,4 @@
-# FServer-library C++17 (WIN)
+# FServer-library C++17 TCP/IP HTTP (WIN)
 ![](https://img.shields.io/badge/C++-Solutions-blue.svg?style=flat&logo=c%2B%2B)
 
 ## About
