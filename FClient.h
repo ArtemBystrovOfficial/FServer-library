@@ -619,7 +619,15 @@ Client < _Struct >& operator>>(Client  < _Struct >& sv, _Struct& st)
         sv.buf_in.pop_front();
     }
     sv.block_buffer_in.unlock();
+    
+      if (sv.buf_in.empty()) {
 
+        sv.event_in.lock();
+        ResetEvent(sv.not_buf_in_empty);
+        sv.event_in.unlock();
+
+    }
+    
     return sv;
 }
 
