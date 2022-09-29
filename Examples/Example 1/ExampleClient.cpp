@@ -33,7 +33,7 @@ struct Pocket
 
 int main()
 {
-	Client <Pocket> cl("127.0.01", 1111);
+	Client <Pocket> cl("127.0.0.1", 1111);
 
 	cl.connect_to_server();
 
